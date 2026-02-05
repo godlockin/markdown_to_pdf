@@ -2,7 +2,6 @@ import { sanitizeMarkdown, renderMarkdown, createHtmlTemplate, Theme, loadTheme,
 
 interface Env {
   MARKDOWN_CONTENT?: string;
-  RATE_LIMIT_KV?: KVNamespace;
 }
 
 interface RequestBody {
@@ -100,7 +99,7 @@ function getMetrics(): Record<string, number | string> {
   };
 }
 
-const worker: ExportedHandler<Env> = {
+const worker = {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
     const path = url.pathname;
@@ -335,4 +334,4 @@ const worker: ExportedHandler<Env> = {
   }
 };
 
-export default worker;
+export = worker;
