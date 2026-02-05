@@ -100,7 +100,7 @@ function getMetrics(): Record<string, number | string> {
   };
 }
 
-export default {
+const worker = {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
     const path = url.pathname;
@@ -333,4 +333,6 @@ export default {
       headers: { ...securityHeaders, 'Content-Type': 'text/html' }
     });
   }
-} satisfies ExportedHandler<Env>;
+};
+
+export default worker;
