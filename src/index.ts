@@ -34,7 +34,7 @@ function cleanupOldEntries(): void {
   if (rateLimitMap.size > MAX_CACHE_SIZE) {
     const sortedEntries = Array.from(rateLimitMap.entries())
       .sort(([, a], [, b]) => a.resetTime - b.resetTime);
-    
+      
     const toDelete = sortedEntries.slice(0, rateLimitMap.size - MAX_CACHE_SIZE);
     for (const [key] of toDelete) {
       rateLimitMap.delete(key);
@@ -100,7 +100,7 @@ function getMetrics(): Record<string, number | string> {
   };
 }
 
-const worker = {
+const worker: ExportedHandler<Env> = {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
     const path = url.pathname;
