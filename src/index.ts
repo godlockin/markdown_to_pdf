@@ -1,4 +1,5 @@
-import { sanitizeMarkdown, renderMarkdown, createHtmlTemplate, Theme, loadTheme, MAX_INPUT_LENGTH, validateInputLength } from './utils/markdown';
+import { sanitizeMarkdown, renderMarkdown, MAX_INPUT_LENGTH, validateInputLength } from './utils/markdown';
+import { renderPage } from './utils/templates';
 
 interface Env {
   MARKDOWN_CONTENT?: string;
@@ -6,7 +7,6 @@ interface Env {
 
 interface RequestBody {
   markdown?: unknown;
-  theme?: Theme;
 }
 
 const RATE_LIMIT = 100;
@@ -18,22 +18,22 @@ const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
 function cleanupOldEntries(): void {
   const now = Date.now();
   if (rateLimitMap.size <= MAX_CACHE_SIZE) return;
-  
+
   const entriesToDelete: string[] = [];
   for (const [key, value] of rateLimitMap.entries()) {
     if (now > value.resetTime) {
       entriesToDelete.push(key);
     }
   }
-  
+
   for (const key of entriesToDelete) {
     rateLimitMap.delete(key);
   }
-  
+
   if (rateLimitMap.size > MAX_CACHE_SIZE) {
     const sortedEntries = Array.from(rateLimitMap.entries())
       .sort(([, a], [, b]) => a.resetTime - b.resetTime);
-      
+
     const toDelete = sortedEntries.slice(0, rateLimitMap.size - MAX_CACHE_SIZE);
     for (const [key] of toDelete) {
       rateLimitMap.delete(key);
@@ -123,8 +123,8 @@ const worker = {
     };
 
     if (path === '/api/health') {
-      return new Response(JSON.stringify({ 
-        status: 'healthy', 
+      return new Response(JSON.stringify({
+        status: 'healthy',
         timestamp: Date.now(),
         version: '3.0.0'
       }), {
@@ -162,7 +162,7 @@ const worker = {
       try {
         let body: RequestBody = {};
         const contentType = request.headers.get('Content-Type');
-        
+
         if (contentType?.includes('application/json')) {
           try {
             body = await request.json() as RequestBody;
@@ -235,61 +235,11 @@ const worker = {
       }
     }
 
-    if (path === '/api/theme') {
-      if (request.method === 'GET') {
-        const theme = loadTheme();
-        return new Response(JSON.stringify({ theme }), {
-          headers: { ...securityHeaders, 'Content-Type': 'application/json' }
-        });
-      }
-      
-      if (request.method === 'POST') {
-        try {
-          let body: RequestBody = {};
-          const contentType = request.headers.get('Content-Type');
-          
-          if (contentType?.includes('application/json')) {
-            try {
-              body = await request.json() as RequestBody;
-            } catch {
-              body = {};
-            }
-          }
 
-          const theme = body.theme as Theme;
-          if (['light', 'dark', 'system'].includes(theme)) {
-            return new Response(JSON.stringify({ 
-              success: true, 
-              theme,
-              applied: true 
-            }), {
-              headers: { ...securityHeaders, 'Content-Type': 'application/json' }
-            });
-          }
-          return new Response(JSON.stringify({ 
-            error: 'Invalid theme', 
-            code: 'INVALID_THEME',
-            validThemes: ['light', 'dark', 'system']
-          }), {
-            status: 400,
-            headers: { ...securityHeaders, 'Content-Type': 'application/json' }
-          });
-        } catch {
-          return new Response(JSON.stringify({ 
-            error: 'Invalid request body',
-            code: 'INVALID_REQUEST'
-          }), {
-            status: 400,
-            headers: { ...securityHeaders, 'Content-Type': 'application/json' }
-          });
-        }
-      }
-    }
 
     if (path === '/' || path === '/index.html') {
-      const title = 'Markdown to PDF Converter';
-      const content = '';
-      const html = createHtmlTemplate(title, content);
+      const title = 'Mercury - Markdown to PDF';
+      const html = renderPage(title, '');
       return new Response(html, {
         headers: { ...securityHeaders, 'Content-Type': 'text/html' }
       });
@@ -298,22 +248,23 @@ const worker = {
     if (path.startsWith('/view/')) {
       try {
         const encodedMarkdown = decodeURIComponent(url.searchParams.get('data') || '');
-        
+
         if (!encodedMarkdown) {
-          return new Response(createHtmlTemplate('Error', '<div class="error-container"><h1>No Content</h1><p>No content provided for this view.</p></div>'), {
+          const html = renderPage('Error', '# No Content\\nNo content provided for this view.');
+          return new Response(html, {
             status: 400,
             headers: { ...securityHeaders, 'Content-Type': 'text/html' }
           });
         }
-        
+
         const sanitizedMarkdown = sanitizeMarkdown(encodedMarkdown);
-        const html = renderMarkdown(sanitizedMarkdown);
-        const pageHtml = createHtmlTemplate('Markdown Preview', html);
-        return new Response(pageHtml, {
+        const html = renderPage('Markdown Preview', sanitizedMarkdown);
+        return new Response(html, {
           headers: { ...securityHeaders, 'Content-Type': 'text/html' }
         });
       } catch {
-        return new Response(createHtmlTemplate('Error', '<div class="error-container"><h1>Invalid Content</h1><p>Unable to decode the provided markdown content.</p></div>'), {
+        const html = renderPage('Error', '# Invalid Content\\nUnable to decode key content.');
+        return new Response(html, {
           status: 400,
           headers: { ...securityHeaders, 'Content-Type': 'text/html' }
         });
@@ -327,11 +278,12 @@ const worker = {
       });
     }
 
-    return new Response(createHtmlTemplate('404 - Page Not Found', '<div class="error-container"><h1>404</h1><p>The page you are looking for does not exist.</p></div>'), {
+    const html = renderPage('404 - Page Not Found', '# 404\nThe page you are looking for does not exist.');
+    return new Response(html, {
       status: 404,
       headers: { ...securityHeaders, 'Content-Type': 'text/html' }
     });
   }
 };
 
-export = worker;
+export default worker;
