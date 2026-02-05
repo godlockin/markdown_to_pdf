@@ -1,4 +1,4 @@
-name = "markdown-to-pdf-worker"
+name = "markdown-to-pdf"
 compatibility_date = "2024-01-01"
 
 [build]
