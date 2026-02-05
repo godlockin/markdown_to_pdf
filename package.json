@@ -4,7 +4,7 @@
   "description": "Cloudflare Worker for rendering markdown and generating PDF",
   "main": "src/index.ts",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc --noEmit",
     "dev": "wrangler dev",
     "serve": "npx ts-node scripts/serve.ts",
     "deploy": "wrangler deploy",
