@@ -1,4 +1,5 @@
 import { performance } from 'perf_hooks';
+import { vi } from 'vitest';
 
 beforeEach(() => {
   if (typeof global.performance === 'undefined') {
@@ -14,7 +15,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  jest.clearAllMocks();
+  vi.clearAllMocks();
 });
 
 global.localStorage = {

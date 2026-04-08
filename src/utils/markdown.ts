@@ -1,5 +1,4 @@
 import { marked } from 'marked';
-import DOMPurify from 'isomorphic-dompurify';
 
 export const MAX_INPUT_LENGTH = 50000;
 
@@ -14,15 +13,19 @@ export function validateInputLength(content: string): { valid: boolean; message?
 }
 
 export function sanitizeMarkdown(markdown: string): string {
-  // Add server-side specific sanitization if needed, 
-  // but DOMPurify is usually enough.
-  return markdown;
+  // Basic server-side sanitization
+  // Remove script tags and javascript: protocols
+  let sanitized = markdown.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+  sanitized = sanitized.replace(/javascript:/gi, '#');
+  sanitized = sanitized.replace(/on\w+="[^"]*"/gi, '');
+  return sanitized;
 }
 
 export function renderMarkdown(markdown: string): string {
   try {
     const rawHtml = marked.parse(markdown) as string;
-    return DOMPurify.sanitize(rawHtml);
+    // Client-side DOMPurify will handle full sanitization
+    return rawHtml;
   } catch (error) {
     console.error('Markdown rendering error:', error);
     return '<div class="error">Rendering failed</div>';
