@@ -105,3 +105,51 @@ Run with `npm run test` (watch) or `npm run test:run` (single pass).
 - Forced white background and black text in `@media print`
 - All UI elements hidden (header, editor, controls)
 - Preview content optimized for print readability
+
+---
+
+## Lessons from Related Projects
+
+### From formal_photos (Cloudflare Workers):
+
+**1. Cloudflare Workers Timeout Limit**:
+- Free tier: 50ms, Paid tier: 30 seconds
+- Any processing >10s should use async job + polling pattern
+- This project: Keep rendering <1s, PDF generation is client-side (no timeout issue)
+
+**2. CSP Headers Required**:
+```typescript
+// Required security headers
+'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self'; worker-src blob:;"
+'X-Content-Type-Options': 'nosniff'
+'X-Frame-Options': 'DENY'
+'X-XSS-Protection': '1; mode=block'
+```
+
+**3. External Resource Loading**:
+- Google Fonts must be allowlisted in CSP (style-src + font-src)
+- CDN scripts (marked.js, DOMPurify) must be in script-src
+- Images: Allow data: and blob: for client-side generation
+
+### From personal-wiki (Knowledge Management):
+
+**4. Fail-Fast + Graceful Degradation**:
+- Validate input at startup (env vars, config)
+- Return degradation report rather than crash
+- This project: 50k char limit validation, rate limiting
+
+**5. Knowledge Reuse Loop**:
+- Each query/export enriches the system
+- This project: localStorage saves content, metrics track usage
+
+### From video_intelligent_analyzer (Markdown Report Generation):
+
+**6. Robust Output Handling**:
+- Large markdown files (28KB+) need efficient streaming
+- Mermaid diagrams require proper escaping
+- This project: Handles 2958 words / 28KB content
+
+**7. Print-First PDF Strategy**:
+- Browser native print > html2pdf.js for complex content
+- Clean HTML with explicit white background + black text
+- Hide all UI elements in `@media print`

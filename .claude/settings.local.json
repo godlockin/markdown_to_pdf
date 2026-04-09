@@ -30,7 +30,8 @@
       "mcp__plugin_playwright_playwright__browser_type",
       "mcp__plugin_playwright_playwright__browser_navigate_back",
       "Bash(curl -s http://localhost:8787/api/health | jq .)",
-      "Bash(ls -la /Users/chenchen/working/sourcecode/tools/dev-tools/markdown_to_pdf/*.png 2>/dev/null || echo \"No PNG files in root\")"
+      "Bash(ls -la /Users/chenchen/working/sourcecode/tools/dev-tools/markdown_to_pdf/*.png 2>/dev/null || echo \"No PNG files in root\")",
+      "Bash(curl -sI https://markdown-to-pdf.stevenchenregister-700.workers.dev/ | grep -i \"content-security-policy\")"
     ]
   }
 }
