@@ -1,0 +1,36 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(sleep 5 && curl -X POST http://localhost:8787/api/render \\\\\n  -H \"Content-Type: application/json\" \\\\\n  -d '{\"markdown\": \"# Test Hello World\"}' 2>&1)",
+      "Bash(curl -X POST http://localhost:8787/api/render -H \"Content-Type: application/json\" -d '{\"markdown\": \"# Test\"}' 2>&1)",
+      "Bash(curl -X POST http://localhost:8787/api/render -H \"Content-Type: application/json\" -d '{\"markdown\": \"# Hello Test\"}' 2>&1)",
+      "Bash(curl -X POST http://localhost:8787/api/render -H \"Content-Type: application/json\" -d @/Users/chenchen/working/sourcecode/games/dreams_n_disruptions/output/game_20260407_234237.md 2>&1 | head -c 500)",
+      "Bash(npm run:*)",
+      "Bash(pkill -f wrangler 2>/dev/null)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(sleep 5 && curl -s http://localhost:8787/api/health 2>&1 || echo \"Server not ready yet\")",
+      "Bash(open http://localhost:8787)",
+      "mcp__plugin_playwright_playwright__browser_navigate",
+      "mcp__plugin_playwright_playwright__browser_console_messages",
+      "mcp__plugin_playwright_playwright__browser_snapshot",
+      "Bash(curl -s http://localhost:8787/ | head -c 500)",
+      "mcp__plugin_playwright_playwright__browser_take_screenshot",
+      "mcp__plugin_playwright_playwright__browser_wait_for",
+      "mcp__plugin_playwright_playwright__browser_click",
+      "Bash(ls -la .playwright-mcp/document.pdf && file .playwright-mcp/document.pdf && pdfinfo .playwright-mcp/document.pdf 2>/dev/null | head -10 || echo \"pdfinfo not available\")",
+      "Bash(/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister -dump | head -5 || which pdftotext || echo \"checking pdf tools\")",
+      "mcp__plugin_playwright_playwright__browser_evaluate",
+      "Bash(pkill -f wrangler || true)",
+      "Bash(sleep 3 && curl -s http://localhost:8787/api/health)",
+      "Bash(sleep 8 && curl -s http://localhost:8787/api/health)",
+      "mcp__plugin_playwright_playwright__browser_tabs",
+      "Bash(ls -la .playwright-mcp/*.pdf 2>/dev/null | tail -5 || echo \"No PDF files\")",
+      "mcp__plugin_playwright_playwright__browser_type",
+      "mcp__plugin_playwright_playwright__browser_navigate_back",
+      "Bash(curl -s http://localhost:8787/api/health | jq .)",
+      "Bash(ls -la /Users/chenchen/working/sourcecode/tools/dev-tools/markdown_to_pdf/*.png 2>/dev/null || echo \"No PNG files in root\")"
+    ]
+  }
+}

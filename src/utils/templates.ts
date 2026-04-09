@@ -158,6 +158,47 @@ main {
   #preview { height: 50vh; }
   .controls span { display: none; }
 }
+/* Print styles */
+@media print {
+  @page { margin: 0.5in; }
+  body {
+    background: #ffffff !important;
+    font-family: 'Inter', -apple-system, sans-serif;
+  }
+  header, .controls, #editor, #toast-container, .pane-header { display: none !important; }
+  main { display: block !important; height: auto !important; overflow: visible !important; }
+  .pane { display: block !important; width: 100% !important; }
+  #preview {
+    display: block !important;
+    overflow: visible !important;
+    height: auto !important;
+    color: #000000 !important;
+    background: #ffffff !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+  }
+  /* Force black text for all elements */
+  #preview, #preview p, #preview span, #preview div, #preview li, #preview td, #preview th {
+    color: #000000 !important;
+    background: transparent !important;
+  }
+  #preview h1, #preview h2, #preview h3, #preview h4, #preview h5, #preview h6 {
+    color: #000000 !important;
+    border-bottom-color: #000000 !important;
+  }
+  #preview code { background-color: #f3f4f6 !important; color: #1f2937 !important; }
+  #preview pre { background-color: #f9fafb !important; white-space: pre-wrap; word-wrap: break-word; }
+  #preview pre code { background: transparent !important; }
+  #preview blockquote { background-color: #f9fafb !important; border-left-color: #000000 !important; color: #374151 !important; }
+  #preview a { color: #000000 !important; text-decoration: underline !important; }
+  #preview table, #preview th, #preview td { border-color: #000000 !important; border-collapse: collapse; }
+  #preview th { background-color: #f3f4f6 !important; font-weight: 600; }
+  #preview img { max-width: 100%; height: auto; }
+  #preview ul, #preview ol { padding-left: 2em; }
+  #preview li { margin: 0.5em 0; list-style-type: disc !important; }
+  page-break-inside: avoid;
+}
 `;
 
 export const js = `
@@ -206,37 +247,97 @@ const exportPDF = async () => {
   const btn = document.getElementById('btn-pdf');
   const originalText = btn.innerHTML;
   btn.innerHTML = '<div class="loader"></div> Generating...';
-  
+
   try {
-    const opt = {
-      margin: 0.5,
-      filename: 'document.pdf',
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
-      jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
-    };
-    
-    // Inject print styles for forced contrast
-    const style = document.createElement('style');
-    style.innerHTML = \`
-      #preview { color: #000000 !important; background: #ffffff !important; }
-      #preview * { color: #000000 !important; }
-      #preview p, #preview li, #preview span { color: #000000 !important; }
-      #preview h1, #preview h2, #preview h3, #preview h4, #preview h5, #preview h6 { color: #000000 !important; border-color: #000000 !important; }
-      #preview code { background-color: #f3f4f6 !important; border: 1px solid #e5e7eb !important; color: #1f2937 !important; }
-      #preview pre { background-color: #f9fafb !important; border: 1px solid #e5e7eb !important; }
-      #preview blockquote { background-color: #f9fafb !important; border-left-color: #000000 !important; color: #374151 !important; }
-      #preview a { color: #000000 !important; text-decoration: underline !important; border: none !important; }
-      #preview table, #preview th, #preview td { border-color: #000000 !important; }
-    \`;
-    element.appendChild(style);
-    
-    await html2pdf().set(opt).from(element).save();
-    
-    style.remove();
-    showToast('PDF Exported Successfully!', 'success');
+    // Create print window with clean HTML
+    const printWindow = window.open('', '_blank', 'width=800,height=600');
+    const htmlContent = element.innerHTML;
+
+    const printHtml = '<!DOCTYPE html>' +
+'<html>' +
+'<head>' +
+'  <title>Markdown Document</title>' +
+'  <meta charset="utf-8">' +
+'  <link rel="preconnect" href="https://fonts.googleapis.com">' +
+'  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>' +
+'  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&family=JetBrains+Mono&display=swap" rel="stylesheet">' +
+'  <style>' +
+'    * { box-sizing: border-box; margin: 0; padding: 0; }' +
+'    body {' +
+'      background: #ffffff;' +
+'      color: #000000;' +
+'      font-family: "Inter", -apple-system, sans-serif;' +
+'      line-height: 1.6;' +
+'      padding: 40px;' +
+'    }' +
+'    h1, h2, h3, h4, h5, h6 { margin: 1em 0 0.5em; color: #000000; }' +
+'    h1 { font-size: 2em; font-weight: 800; }' +
+'    h2 { font-size: 1.5em; border-bottom: 1px solid #000; padding-bottom: 0.5em; margin-top: 1.5em; }' +
+'    h3 { font-size: 1.25em; margin-top: 1em; }' +
+'    h4, h5, h6 { font-size: 1em; margin-top: 1em; }' +
+'    p { margin: 1em 0; }' +
+'    ul, ol { margin: 1em 0; padding-left: 2em; }' +
+'    li { margin: 0.5em 0; }' +
+'    code {' +
+'      background: #f3f4f6;' +
+'      padding: 0.2em 0.4em;' +
+'      border-radius: 4px;' +
+'      font-family: "JetBrains Mono", monospace;' +
+'      font-size: 0.9em;' +
+'      color: #1f2937;' +
+'    }' +
+'    pre {' +
+'      background: #f9fafb;' +
+'      padding: 1em;' +
+'      border-radius: 8px;' +
+'      overflow-x: auto;' +
+'      margin: 1em 0;' +
+'      border: 1px solid #e5e7eb;' +
+'    }' +
+'    pre code { background: transparent; padding: 0; }' +
+'    blockquote {' +
+'      border-left: 4px solid #000;' +
+'      padding-left: 1em;' +
+'      color: #374151;' +
+'      background: #f9fafb;' +
+'      padding: 1em;' +
+'      margin: 1em 0;' +
+'    }' +
+'    img { max-width: 100%; height: auto; }' +
+'    a { color: #000000; text-decoration: underline; }' +
+'    table { width: 100%; border-collapse: collapse; margin: 1em 0; }' +
+'    th, td { padding: 0.75em; border: 1px solid #000; text-align: left; }' +
+'    th { background: #f3f4f6; font-weight: 600; }' +
+'    hr { border: none; border-top: 1px solid #000; margin: 2em 0; }' +
+'    strong { font-weight: 600; }' +
+'    em { font-style: italic; }' +
+'    @media print { @page { margin: 0.5in; } body { padding: 20px; } }' +
+'    .print-hint { background: #fff3cd; border: 1px solid #ffc107; padding: 1rem; margin-bottom: 1rem; border-radius: 8px; color: #856404; }' +
+'    @media print { .print-hint { display: none !important; } }' +
+'  </style>' +
+'</head>' +
+'<body>' +
+'<div class="print-hint"><strong>📄 PDF Instructions:</strong> Select "Save as PDF" as destination, then click Save. Close this window after.</div>' +
+htmlContent + '</body>' +
+'</html>';
+
+    printWindow.document.write(printHtml);
+    printWindow.document.close();
+
+    // Wait for fonts and content
+    await printWindow.document.fonts.ready;
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // Print - do not auto-close window, let user close after saving
+    printWindow.print();
+
+    // Do not auto-close - user needs to manually close after saving PDF
+    // setTimeout(() => printWindow.close(), 1000);
+
+    showToast('Select "Save as PDF" in the print dialog', 'success');
   } catch (e) {
-    showToast('Export failed', 'error');
+    console.error('PDF export error:', e);
+    showToast('Export failed: ' + (e.message || 'Unknown error'), 'error');
   } finally {
     btn.innerHTML = originalText;
   }

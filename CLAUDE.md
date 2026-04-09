@@ -10,7 +10,8 @@ npm run dev              # Start local dev server (Wrangler)
 npm run build            # Type check only (noEmit)
 npm run serve            # Run standalone server for testing
 npm run test             # Run tests (Vitest)
-npm run test:run         # Run tests once
+npm run test:run         # Run tests once (no watch)
+npm run test:coverage    # Run tests with coverage
 npm run deploy           # Deploy to Cloudflare
 ```
 
@@ -24,8 +25,12 @@ npm run deploy           # Deploy to Cloudflare
 src/
   index.ts          # Worker entry: request routing, rate limiting, metrics
   utils/
-    markdown.ts     # Sanitization (DOMPurify), rendering (marked), validation
+    markdown.ts     # Sanitization (regex-based), rendering (marked), validation
     templates.ts    # HTML template generator with CSS/JS embedded
+tests/
+  unit/             # Unit tests (markdown, theme, export, performance)
+  e2e/              # E2E rendering tests
+  integration.test.ts
 ```
 
 ### API Endpoints
@@ -40,13 +45,16 @@ src/
 
 ### Key Patterns
 
-**Rate Limiting**: In-memory map with 60s windows, 100 req/min per IP. Auto-cleanup when cache exceeds 1000 entries.
+**Rate Limiting**: In-memory Map with 60s windows, 100 req/min per IP. Auto-cleanup when cache exceeds 1000 entries.
 
-**Security**: Server-side basic sanitization (script/event handler removal), client-side DOMPurify for full XSS protection. CSP headers, nosniff, Frame/DENY. All external calls (CDN scripts) explicitly allowlisted.
+**Security**:
+- Server-side: regex-based sanitization (script/iframe removal, javascript: protocol replacement, event handler stripping)
+- Client-side: DOMPurify for full XSS protection
+- Headers: CSP, X-Content-Type-Options: nosniff, X-Frame-Options: DENY
 
 **Note**: `isomorphic-dompurify` is NOT compatible with Cloudflare Workers runtime - use basic regex-based sanitization on server, full DOMPurify on client.
 
-**Metrics**: Global counter tracking total/successful/failed requests, average render time, uptime.
+**Metrics**: In-memory counter tracking total/successful/failed requests, rate-limited requests, average render time, uptime.
 
 ### Type Safety
 
@@ -57,10 +65,43 @@ src/
 
 ### Testing
 
-Tests cover sanitization, input validation, XSS blocking, template generation, and performance. Run with `npm run test`.
+Test files:
+- `tests/unit/markdown.test.ts` - Sanitization, input validation
+- `tests/unit/theme.test.ts` - Theme configuration (light/dark)
+- `tests/unit/export.test.ts` - PDF export manager
+- `tests/unit/performance.test.ts` - Performance metrics
+- `tests/e2e/rendering.test.ts` - End-to-end rendering tests
+- `tests/integration.test.ts` - Integration tests
+
+Run with `npm run test` (watch) or `npm run test:run` (single pass).
 
 ### Constraints
 
 - Max input: 50,000 characters
 - Client-side PDF via html2pdf.js (no server PDF generation)
 - Single-instance (in-memory rate limit storage)
+
+### Known Issues
+
+- Tests reference `truncateContent` function that doesn't exist in `markdown.ts`
+- Tests import `createHtmlTemplate`, `getSystemTheme` functions that don't exist
+- Performance metrics tests expect browser `window.performanceMetrics` API
+- Some sanitization tests fail (iframe removal, javascript: URL handling)
+
+### Recent Fixes (v3.0.0)
+
+**PDF Export Blank Issue**:
+- Root cause: html2canvas cannot render dark theme content properly
+- Fix: Switched to browser native `window.print()` API
+- Print window opens with clean white-background HTML
+- User manually selects "Save as PDF" in print dialog
+
+**CSP Headers**:
+- Added `https://fonts.googleapis.com` to style-src
+- Added `https://fonts.gstatic.com` to font-src
+- Google Fonts now load correctly
+
+**Print Styles**:
+- Forced white background and black text in `@media print`
+- All UI elements hidden (header, editor, controls)
+- Preview content optimized for print readability
