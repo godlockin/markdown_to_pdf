@@ -148,6 +148,38 @@ main {
 .toast.success { border-left: 4px solid var(--success); }
 .toast.error { border-left: 4px solid var(--danger); }
 @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+/* Drop overlay */
+#drop-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(6px);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 90;
+}
+#drop-overlay.visible {
+  display: flex;
+}
+.drop-overlay-content {
+  border: 1px dashed rgba(255,255,255,0.25);
+  background: rgba(30, 41, 59, 0.65);
+  border-radius: 16px;
+  padding: 2rem 2.5rem;
+  text-align: center;
+  min-width: 320px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+.drop-overlay-title {
+  font-weight: 700;
+  font-size: 1.125rem;
+  margin-bottom: 0.5rem;
+}
+.drop-overlay-subtitle {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
 /* Loading */
 .loader { border: 2px solid rgba(255,255,255,0.1); border-left-color: var(--accent-primary); border-radius: 50%; width: 16px; height: 16px; animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -220,6 +252,32 @@ const showToast = (msg, type = 'info') => {
     toast.style.transform = 'translateY(10px)';
     setTimeout(() => toast.remove(), 300);
   }, 3000);
+};
+const isMarkdownFile = (file) => {
+  if (!file || !file.name) return false;
+  const name = String(file.name).toLowerCase();
+  return name.endsWith('.md') || name.endsWith('.markdown');
+};
+const rejectFile = (message) => {
+  showToast(message, 'error');
+  alert(message);
+};
+const importMarkdownFile = async (file) => {
+  if (!file) return;
+  if (!isMarkdownFile(file)) {
+    rejectFile('只支持导入 Markdown 文件（.md / .markdown）');
+    return;
+  }
+  try {
+    const content = await file.text();
+    const editor = document.getElementById('editor');
+    editor.value = content;
+    render();
+    showToast('已导入：' + file.name, 'success');
+  } catch (e) {
+    console.error('File import error:', e);
+    rejectFile('导入失败：无法读取文件内容');
+  }
 };
 // Markdown Rendering
 const render = () => {
@@ -370,6 +428,52 @@ document.addEventListener('DOMContentLoaded', () => {
       showToast('Cleared', 'info');
     }
   });
+
+  const fileInput = document.getElementById('file-input');
+  const importBtn = document.getElementById('btn-import');
+  if (importBtn && fileInput) {
+    importBtn.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', async (e) => {
+      const input = e.target;
+      const file = input.files && input.files[0];
+      input.value = '';
+      await importMarkdownFile(file);
+    });
+  }
+
+  const dropOverlay = document.getElementById('drop-overlay');
+  let dragCounter = 0;
+  const showOverlay = () => {
+    if (dropOverlay) dropOverlay.classList.add('visible');
+  };
+  const hideOverlay = () => {
+    if (dropOverlay) dropOverlay.classList.remove('visible');
+  };
+
+  window.addEventListener('dragenter', (e) => {
+    if (!e.dataTransfer || !e.dataTransfer.types || !Array.from(e.dataTransfer.types).includes('Files')) return;
+    dragCounter++;
+    showOverlay();
+  });
+  window.addEventListener('dragover', (e) => {
+    if (!e.dataTransfer) return;
+    if (!e.dataTransfer.types || !Array.from(e.dataTransfer.types).includes('Files')) return;
+    e.preventDefault();
+  });
+  window.addEventListener('dragleave', (e) => {
+    if (!e.dataTransfer || !e.dataTransfer.types || !Array.from(e.dataTransfer.types).includes('Files')) return;
+    dragCounter = Math.max(0, dragCounter - 1);
+    if (dragCounter === 0) hideOverlay();
+  });
+  window.addEventListener('drop', async (e) => {
+    if (!e.dataTransfer) return;
+    if (!e.dataTransfer.types || !Array.from(e.dataTransfer.types).includes('Files')) return;
+    e.preventDefault();
+    dragCounter = 0;
+    hideOverlay();
+    const file = e.dataTransfer.files && e.dataTransfer.files[0];
+    await importMarkdownFile(file);
+  });
 });
 `;
 
@@ -392,6 +496,10 @@ export function renderPage(title: string, content: string = ''): string {
   <header>
     <div class="logo">Mercury</div>
     <div class="controls">
+      <button id="btn-import">
+        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 20h16M7 16l5-5m0 0l5 5m-5-5v9M12 3v8" /></svg>
+        <span>Import</span>
+      </button>
       <button id="btn-clear">
         <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
         <span>Clear</span>
@@ -406,6 +514,7 @@ export function renderPage(title: string, content: string = ''): string {
       </button>
     </div>
   </header>
+  <input id="file-input" type="file" accept=".md,.markdown,text/markdown" style="display:none" />
   <main>
     <div class="pane">
       <div class="pane-header">
@@ -421,6 +530,12 @@ export function renderPage(title: string, content: string = ''): string {
       <div id="preview"></div>
     </div>
   </main>
+  <div id="drop-overlay" aria-hidden="true">
+    <div class="drop-overlay-content">
+      <div class="drop-overlay-title">Drop Markdown to Import</div>
+      <div class="drop-overlay-subtitle">只支持 .md / .markdown，导入后会覆盖当前内容</div>
+    </div>
+  </div>
   <div id="toast-container"></div>
   <script>
     ${js}
