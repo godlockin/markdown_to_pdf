@@ -1,0 +1,63 @@
+- generic [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]: ◆ Mercury
+    - generic [ref=e4]:
+      - button "Focus" [ref=e5] [cursor=pointer]
+      - button "Import" [ref=e6] [cursor=pointer]
+      - button "Copy HTML" [ref=e7] [cursor=pointer]
+      - button "Export PDF" [ref=e8] [cursor=pointer]
+  - generic [ref=e9]:
+    - complementary [ref=e10]:
+      - generic [ref=e11]:
+        - generic [ref=e12]: Documents
+        - button "+" [ref=e13] [cursor=pointer]
+      - generic [ref=e43] [cursor=pointer]:
+        - generic [ref=e44]: "# Welcome to Mercury"
+        - generic [ref=e45]: 1 words
+    - button "◀" [ref=e18] [cursor=pointer]
+    - generic [ref=e19]:
+      - generic [ref=e20]:
+        - button "B" [ref=e21] [cursor=pointer]
+        - button "I" [ref=e22] [cursor=pointer]:
+          - emphasis [ref=e23]: I
+        - button "H" [ref=e24] [cursor=pointer]
+        - button "</>" [ref=e25] [cursor=pointer]
+        - button "🔗" [ref=e26] [cursor=pointer]
+        - button "☰" [ref=e27] [cursor=pointer]
+        - button "▣" [ref=e29] [cursor=pointer]
+        - button "WYSIWYG" [ref=e30] [cursor=pointer]
+      - generic [ref=e32]:
+        - generic:
+          - heading "Welcome to Mercury\\n\\nStart writing...# Design Principles" [level=1]
+          - heading "Simplicity" [level=2]
+          - paragraph:
+            - text: The
+            - strong: best
+            - text: design is
+            - emphasis: invisible
+            - text: ". Focus on what matters most:"
+          - list:
+            - listitem: Clarity over decoration
+            - listitem: Content over chrome
+            - listitem: Writing over tools
+        - textbox "Start writing..." [active] [ref=e33]: "# Welcome to Mercury\\n\\nStart writing...# Design Principles ## Simplicity The **best** design is *invisible*. Focus on what matters most: - Clarity over decoration - Content over chrome - Writing over tools"
+      - generic [ref=e34]:
+        - generic [ref=e35]: 1 words \u00b7 206 chars
+        - generic [ref=e36]: WYSIWYG
+    - generic [ref=e37]:
+      - generic [ref=e38]:
+        - generic [ref=e39]: Preview
+        - button "×" [ref=e40] [cursor=pointer]
+      - generic [ref=e41]:
+        - heading "Welcome to Mercury\\n\\nStart writing...# Design Principles" [level=1] [ref=e46]
+        - heading "Simplicity" [level=2] [ref=e47]
+        - paragraph [ref=e48]:
+          - text: The
+          - strong [ref=e49]: best
+          - text: design is
+          - emphasis [ref=e50]: invisible
+          - text: ". Focus on what matters most:"
+        - list [ref=e51]:
+          - listitem [ref=e52]: Clarity over decoration
+          - listitem [ref=e53]: Content over chrome
+          - listitem [ref=e54]: Writing over tools

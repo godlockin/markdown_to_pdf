@@ -1,0 +1,37 @@
+- generic [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]: ◆ Mercury
+    - generic [ref=e4]:
+      - button "Focus" [ref=e5] [cursor=pointer]
+      - button "Import" [ref=e6] [cursor=pointer]
+      - button "Copy HTML" [ref=e7] [cursor=pointer]
+      - button "Export PDF" [ref=e8] [cursor=pointer]
+  - generic [ref=e9]:
+    - complementary [ref=e10]:
+      - generic [ref=e11]:
+        - generic [ref=e12]: Documents
+        - button "+" [ref=e13] [cursor=pointer]
+      - generic [ref=e43] [cursor=pointer]:
+        - generic [ref=e44]: "# Welcome to Mercury"
+        - generic [ref=e45]: 1 words
+    - button "◀" [ref=e18]
+    - generic [ref=e19]:
+      - generic [ref=e20]:
+        - button "B" [ref=e21] [cursor=pointer]
+        - button "I" [ref=e22] [cursor=pointer]:
+          - emphasis [ref=e23]: I
+        - button "H" [ref=e24] [cursor=pointer]
+        - button "</>" [ref=e25] [cursor=pointer]
+        - button "🔗" [ref=e26] [cursor=pointer]
+        - button "☰" [ref=e27] [cursor=pointer]
+        - button "▣" [ref=e29] [cursor=pointer]
+        - button "WYSIWYG" [ref=e30] [cursor=pointer]
+      - textbox "Start writing..." [active] [ref=e33]: "# Welcome to Mercury\\n\\nStart writing..."
+      - generic [ref=e34]:
+        - generic [ref=e35]: 1 words \u00b7 40 chars
+        - generic [ref=e36]: WYSIWYG
+    - generic [ref=e37]:
+      - generic [ref=e38]:
+        - generic [ref=e39]: Preview
+        - button "×" [ref=e40] [cursor=pointer]
+      - heading "Welcome to Mercury\\n\\nStart writing..." [level=1] [ref=e42]

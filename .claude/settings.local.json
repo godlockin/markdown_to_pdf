@@ -31,7 +31,26 @@
       "mcp__plugin_playwright_playwright__browser_navigate_back",
       "Bash(curl -s http://localhost:8787/api/health | jq .)",
       "Bash(ls -la /Users/chenchen/working/sourcecode/tools/dev-tools/markdown_to_pdf/*.png 2>/dev/null || echo \"No PNG files in root\")",
-      "Bash(curl -sI https://markdown-to-pdf.stevenchenregister-700.workers.dev/ | grep -i \"content-security-policy\")"
+      "Bash(curl -sI https://markdown-to-pdf.stevenchenregister-700.workers.dev/ | grep -i \"content-security-policy\")",
+      "Bash(rtk ls *)",
+      "Bash(rtk read *)",
+      "Bash(rtk git *)",
+      "Bash(rtk npm *)",
+      "Bash(openssl rand *)",
+      "Bash(npx wrangler *)",
+      "Bash(rtk curl *)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(npm install *)",
+      "Bash(MARKDOWN_RENDER_API_KEY=87744f7dcf9e6ec437833efb3e8328940f14ae60f138e0a27fe96810b01a3353 timeout 5 node dist/index.js)",
+      "Bash(python3 -m json.tool)",
+      "Bash(rtk npx *)",
+      "Bash(git checkout *)",
+      "Bash(pkill -f wrangler)",
+      "Bash(rtk grep *)",
+      "Bash(awk 'NR==80' src/utils/templates.ts)",
+      "Bash(pkill -f \"wrangler dev\")",
+      "Bash(pkill -f \"node.*wrangler\")",
+      "Bash(rtk wc *)"
     ]
   }
 }

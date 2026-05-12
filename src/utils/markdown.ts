@@ -13,11 +13,12 @@ export function validateInputLength(content: string): { valid: boolean; message?
 }
 
 export function sanitizeMarkdown(markdown: string): string {
-  // Basic server-side sanitization
-  // Remove script tags and javascript: protocols
   let sanitized = markdown.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+  sanitized = sanitized.replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '');
   sanitized = sanitized.replace(/javascript:/gi, '#');
-  sanitized = sanitized.replace(/on\w+="[^"]*"/gi, '');
+  sanitized = sanitized.replace(/on\w+\s*=\s*"[^"]*"/gi, '');
+  sanitized = sanitized.replace(/on\w+\s*=\s*'[^']*'/gi, '');
+  sanitized = sanitized.replace(/href\s*=\s*"data:[^"]*"/gi, 'href="#"');
   return sanitized;
 }
 

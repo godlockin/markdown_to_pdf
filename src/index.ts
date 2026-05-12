@@ -1,102 +1,165 @@
 import { sanitizeMarkdown, renderMarkdown, MAX_INPUT_LENGTH, validateInputLength } from './utils/markdown';
 import { renderPage } from './utils/templates';
+import { checkRateLimit, getClientIP } from './utils/rate-limit';
+import { recordRequest, incrementRateLimited, getMetrics } from './utils/metrics';
 
 interface Env {
   MARKDOWN_CONTENT?: string;
+  TURNSTILE_SECRET_KEY?: string;
+  TURNSTILE_SITE_KEY?: string;
+  API_KEY?: string;
 }
 
 interface RequestBody {
   markdown?: unknown;
+  turnstileToken?: unknown;
 }
 
-const RATE_LIMIT = 100;
-const RATE_LIMIT_WINDOW = 60 * 1000;
-const MAX_CACHE_SIZE = 1000;
-
-const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
-
-function cleanupOldEntries(): void {
-  const now = Date.now();
-  if (rateLimitMap.size <= MAX_CACHE_SIZE) return;
-
-  const entriesToDelete: string[] = [];
-  for (const [key, value] of rateLimitMap.entries()) {
-    if (now > value.resetTime) {
-      entriesToDelete.push(key);
-    }
-  }
-
-  for (const key of entriesToDelete) {
-    rateLimitMap.delete(key);
-  }
-
-  if (rateLimitMap.size > MAX_CACHE_SIZE) {
-    const sortedEntries = Array.from(rateLimitMap.entries())
-      .sort(([, a], [, b]) => a.resetTime - b.resetTime);
-
-    const toDelete = sortedEntries.slice(0, rateLimitMap.size - MAX_CACHE_SIZE);
-    for (const [key] of toDelete) {
-      rateLimitMap.delete(key);
-    }
-  }
-}
-
-function checkRateLimit(clientIp: string): boolean {
-  const now = Date.now();
-  const record = rateLimitMap.get(clientIp);
-
-  if (!record || now > record.resetTime) {
-    rateLimitMap.set(clientIp, { count: 1, resetTime: now + RATE_LIMIT_WINDOW });
-    cleanupOldEntries();
-    return true;
-  }
-
-  if (record.count >= RATE_LIMIT) {
-    return false;
-  }
-
-  record.count++;
-  return true;
-}
-
-function getClientIP(request: Request): string {
-  return request.headers.get('CF-Connecting-IP') || 'unknown';
-}
-
-const METRICS = {
-  totalRequests: 0,
-  successfulRequests: 0,
-  failedRequests: 0,
-  rateLimitedRequests: 0,
-  totalRenderTime: 0,
-  averageRenderTime: 0,
-  startTime: Date.now()
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, X-API-Key',
 };
 
-function recordRequest(success: boolean, renderTime?: number): void {
-  METRICS.totalRequests++;
-  if (success) {
-    METRICS.successfulRequests++;
-    if (renderTime !== undefined) {
-      METRICS.totalRenderTime += renderTime;
-      METRICS.averageRenderTime = METRICS.totalRenderTime / METRICS.successfulRequests;
+const securityHeaders = {
+  ...corsHeaders,
+  'X-Content-Type-Options': 'nosniff',
+  'X-Frame-Options': 'DENY',
+  'X-XSS-Protection': '1; mode=block',
+  'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; worker-src blob:;",
+};
+
+function jsonResponse(body: Record<string, unknown>, status: number, extraHeaders?: Record<string, string>): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...securityHeaders, 'Content-Type': 'application/json', ...extraHeaders },
+  });
+}
+
+function handleHealth(): Response {
+  return jsonResponse({ status: 'healthy', timestamp: Date.now(), version: '3.0.0' }, 200);
+}
+
+function handleMetrics(): Response {
+  return jsonResponse({ status: 'ok', metrics: getMetrics(), timestamp: Date.now() }, 200);
+}
+
+async function verifyTurnstile(token: string, secret: string): Promise<boolean> {
+  const res = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ secret, response: token }),
+  });
+  const data = await res.json() as { success: boolean };
+  return data.success === true;
+}
+
+async function handleRender(request: Request, env: Env): Promise<Response> {
+  if (request.method !== 'POST') {
+    return jsonResponse({ error: 'Method not allowed', code: 'METHOD_NOT_ALLOWED' }, 405);
+  }
+
+  const clientIP = getClientIP(request);
+  if (!checkRateLimit(clientIP)) {
+    incrementRateLimited();
+    return jsonResponse(
+      { error: 'Too many requests', code: 'RATE_LIMIT_EXCEEDED', retryAfter: 60 },
+      429,
+      { 'Retry-After': '60' }
+    );
+  }
+
+  try {
+    let body: RequestBody = {};
+    const contentType = request.headers.get('Content-Type');
+
+    if (contentType?.includes('application/json')) {
+      try {
+        body = await request.json() as RequestBody;
+      } catch {
+        body = {};
+      }
     }
-  } else {
-    METRICS.failedRequests++;
+
+    // API Key takes priority (programmatic access)
+    const apiKey = request.headers.get('X-API-Key');
+    const hasApiKey = env.API_KEY && apiKey === env.API_KEY;
+
+    if (!hasApiKey && env.TURNSTILE_SECRET_KEY && env.TURNSTILE_SITE_KEY) {
+      if (typeof body.turnstileToken !== 'string') {
+        return jsonResponse({ error: 'Turnstile verification required', code: 'TURNSTILE_REQUIRED', siteKey: env.TURNSTILE_SITE_KEY }, 401);
+      }
+      const valid = await verifyTurnstile(body.turnstileToken, env.TURNSTILE_SECRET_KEY);
+      if (!valid) {
+        return jsonResponse({ error: 'Turnstile verification failed', code: 'TURNSTILE_INVALID' }, 401);
+      }
+    }
+
+    if (typeof body.markdown !== 'string') {
+      return jsonResponse(
+        { error: 'Invalid request body', code: 'INVALID_REQUEST', details: 'markdown field is required and must be a string' },
+        400
+      );
+    }
+
+    if (body.markdown.length > MAX_INPUT_LENGTH) {
+      return jsonResponse(
+        { error: 'Content too long', code: 'CONTENT_TOO_LONG', details: 'Markdown content must be less than ' + MAX_INPUT_LENGTH.toLocaleString() + ' characters' },
+        400
+      );
+    }
+
+    const validation = validateInputLength(body.markdown);
+    if (!validation.valid) {
+      return jsonResponse(
+        { error: 'Content validation failed', code: 'VALIDATION_ERROR', details: validation.message },
+        400
+      );
+    }
+
+    const renderStart = Date.now();
+    const sanitizedMarkdown = sanitizeMarkdown(body.markdown);
+    const html = renderMarkdown(sanitizedMarkdown);
+    const renderTime = Date.now() - renderStart;
+
+    recordRequest(true, renderTime);
+
+    return jsonResponse({
+      html,
+      success: true,
+      renderedAt: Date.now(),
+      renderTime: renderTime + 'ms',
+      contentLength: body.markdown.length,
+    }, 200);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error('API Error:', { message, code: 'INTERNAL_ERROR' });
+    recordRequest(false);
+    return jsonResponse(
+      { error: 'Internal server error', code: 'INTERNAL_ERROR', message: 'An unexpected error occurred' },
+      500
+    );
   }
 }
 
-function getMetrics(): Record<string, number | string> {
-  const uptime = Date.now() - METRICS.startTime;
-  return {
-    totalRequests: METRICS.totalRequests,
-    successfulRequests: METRICS.successfulRequests,
-    failedRequests: METRICS.failedRequests,
-    rateLimitedRequests: METRICS.rateLimitedRequests,
-    averageRenderTime: METRICS.averageRenderTime.toFixed(2) + 'ms',
-    uptime: Math.floor(uptime / 1000) + 's',
-    activeRateLimitEntries: rateLimitMap.size
-  };
+function handleView(url: URL): Response {
+  try {
+    const markdown = decodeURIComponent(url.searchParams.get('data') || '');
+    if (!markdown) {
+      return new Response(renderPage('Error', '# No Content\nNo content provided for this view.'), {
+        status: 400,
+        headers: { ...securityHeaders, 'Content-Type': 'text/html' },
+      });
+    }
+    const sanitized = sanitizeMarkdown(markdown);
+    const html = renderPage('Markdown Preview', sanitized);
+    return new Response(html, { headers: { ...securityHeaders, 'Content-Type': 'text/html' } });
+  } catch {
+    return new Response(renderPage('Error', '# Invalid Content\nUnable to decode key content.'), {
+      status: 400,
+      headers: { ...securityHeaders, 'Content-Type': 'text/html' },
+    });
+  }
 }
 
 const worker = {
@@ -104,184 +167,29 @@ const worker = {
     const url = new URL(request.url);
     const path = url.pathname;
 
-    const corsHeaders = {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
-    };
-
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: corsHeaders });
     }
 
-    const securityHeaders = {
-      ...corsHeaders,
-      'X-Content-Type-Options': 'nosniff',
-      'X-Frame-Options': 'DENY',
-      'X-XSS-Protection': '1; mode=block',
-      'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self'; worker-src blob:;",
-    };
-
-    if (path === '/api/health') {
-      return new Response(JSON.stringify({
-        status: 'healthy',
-        timestamp: Date.now(),
-        version: '3.0.0'
-      }), {
-        headers: { ...securityHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-
-    if (path === '/api/metrics') {
-      return new Response(JSON.stringify({
-        status: 'ok',
-        metrics: getMetrics(),
-        timestamp: Date.now()
-      }), {
-        headers: { ...securityHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-
-    if (path === '/api/render') {
-      if (request.method !== 'POST') {
-        return new Response(JSON.stringify({ error: 'Method not allowed', code: 'METHOD_NOT_ALLOWED' }), {
-          status: 405,
-          headers: { ...securityHeaders, 'Content-Type': 'application/json' }
-        });
-      }
-
-      const clientIP = getClientIP(request);
-      if (!checkRateLimit(clientIP)) {
-        METRICS.rateLimitedRequests++;
-        return new Response(JSON.stringify({ error: 'Too many requests', code: 'RATE_LIMIT_EXCEEDED', retryAfter: 60, retryIn: 60 }), {
-          status: 429,
-          headers: { ...securityHeaders, 'Content-Type': 'application/json', 'Retry-After': '60' }
-        });
-      }
-
-      try {
-        let body: RequestBody = {};
-        const contentType = request.headers.get('Content-Type');
-
-        if (contentType?.includes('application/json')) {
-          try {
-            body = await request.json() as RequestBody;
-          } catch {
-            body = {};
-          }
-        }
-
-        if (typeof body.markdown !== 'string') {
-          return new Response(JSON.stringify({
-            error: 'Invalid request body',
-            code: 'INVALID_REQUEST',
-            details: 'markdown field is required and must be a string'
-          }), {
-            status: 400,
-            headers: { ...securityHeaders, 'Content-Type': 'application/json' }
-          });
-        }
-
-        if (body.markdown.length > MAX_INPUT_LENGTH) {
-          return new Response(JSON.stringify({
-            error: 'Content too long',
-            code: 'CONTENT_TOO_LONG',
-            details: 'Markdown content must be less than ' + MAX_INPUT_LENGTH.toLocaleString() + ' characters'
-          }), {
-            status: 400,
-            headers: { ...securityHeaders, 'Content-Type': 'application/json' }
-          });
-        }
-
-        const validation = validateInputLength(body.markdown);
-        if (!validation.valid) {
-          return new Response(JSON.stringify({
-            error: 'Content validation failed',
-            code: 'VALIDATION_ERROR',
-            details: validation.message
-          }), {
-            status: 400,
-            headers: { ...securityHeaders, 'Content-Type': 'application/json' }
-          });
-        }
-
-        const renderStart = Date.now();
-        const sanitizedMarkdown = sanitizeMarkdown(body.markdown);
-        const html = renderMarkdown(sanitizedMarkdown);
-        const renderTime = Date.now() - renderStart;
-
-        recordRequest(true, renderTime);
-
-        return new Response(JSON.stringify({
-          html,
-          success: true,
-          renderedAt: Date.now(),
-          renderTime: renderTime + 'ms',
-          contentLength: body.markdown.length
-        }), {
-          headers: { ...securityHeaders, 'Content-Type': 'application/json' }
-        });
-      } catch (error) {
-        console.error('API Error:', error);
-        recordRequest(false);
-        return new Response(JSON.stringify({
-          error: 'Internal server error',
-          code: 'INTERNAL_ERROR',
-          message: 'An unexpected error occurred while processing your request'
-        }), {
-          status: 500,
-          headers: { ...securityHeaders, 'Content-Type': 'application/json' }
-        });
-      }
-    }
-
-
-
+    if (path === '/api/health') return handleHealth();
+    if (path === '/api/metrics') return handleMetrics();
+    if (path === '/api/render') return handleRender(request, env);
     if (path === '/' || path === '/index.html') {
-      const title = 'Mercury - Markdown to PDF';
-      const html = renderPage(title, '');
-      return new Response(html, {
-        headers: { ...securityHeaders, 'Content-Type': 'text/html' }
+      return new Response(renderPage('Mercury - Markdown to PDF', '', env.TURNSTILE_SITE_KEY), {
+        headers: { ...securityHeaders, 'Content-Type': 'text/html' },
       });
     }
-
-    if (path.startsWith('/view/')) {
-      try {
-        const encodedMarkdown = decodeURIComponent(url.searchParams.get('data') || '');
-
-        if (!encodedMarkdown) {
-          const html = renderPage('Error', '# No Content\\nNo content provided for this view.');
-          return new Response(html, {
-            status: 400,
-            headers: { ...securityHeaders, 'Content-Type': 'text/html' }
-          });
-        }
-
-        const sanitizedMarkdown = sanitizeMarkdown(encodedMarkdown);
-        const html = renderPage('Markdown Preview', sanitizedMarkdown);
-        return new Response(html, {
-          headers: { ...securityHeaders, 'Content-Type': 'text/html' }
-        });
-      } catch {
-        const html = renderPage('Error', '# Invalid Content\\nUnable to decode key content.');
-        return new Response(html, {
-          status: 400,
-          headers: { ...securityHeaders, 'Content-Type': 'text/html' }
-        });
-      }
-    }
-
+    if (path.startsWith('/view/')) return handleView(url);
     if (path.startsWith('/static/')) {
       return new Response('Static content not found', {
         status: 404,
-        headers: { ...securityHeaders, 'Content-Type': 'text/plain' }
+        headers: { ...securityHeaders, 'Content-Type': 'text/plain' },
       });
     }
 
-    const html = renderPage('404 - Page Not Found', '# 404\nThe page you are looking for does not exist.');
-    return new Response(html, {
+    return new Response(renderPage('404 - Page Not Found', '# 404\nThe page you are looking for does not exist.'), {
       status: 404,
-      headers: { ...securityHeaders, 'Content-Type': 'text/html' }
+      headers: { ...securityHeaders, 'Content-Type': 'text/html' },
     });
   }
 };

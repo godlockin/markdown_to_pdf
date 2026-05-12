@@ -140,7 +140,6 @@ describe('E2E: Markdown Rendering Pipeline', () => {
       const html = renderPage('Test', '');
       expect(html).toContain('marked.min.js');
       expect(html).toContain('dompurify');
-      expect(html).toContain('html2pdf');
     });
 
     it('should include CSS styles', () => {

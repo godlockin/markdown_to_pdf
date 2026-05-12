@@ -1,3 +1,7 @@
 name = "markdown-to-pdf"
 compatibility_date = "2024-01-01"
 main = "src/index.ts"
+
+routes = [
+  { pattern = "markdown-to-pdf.shanghai.edu.kg", custom_domain = true }
+]

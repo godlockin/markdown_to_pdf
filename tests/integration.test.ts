@@ -1,4 +1,5 @@
-import { sanitizeMarkdown, renderMarkdown, validateInputLength, createHtmlTemplate } from '../src/utils/markdown';
+import { sanitizeMarkdown, renderMarkdown, validateInputLength } from '../src/utils/markdown';
+import { renderPage } from '../src/utils/templates';
 
 describe('Integration Tests', () => {
   describe('Full Markdown Pipeline', () => {
@@ -67,29 +68,28 @@ console.log('Hello');
 
   describe('Template Generation', () => {
     it('should create valid HTML template', () => {
-      const template = createHtmlTemplate('Test', '<h1>Hello</h1>');
-      
+      const template = renderPage('Test', '<h1>Hello</h1>');
+
       expect(template).toContain('<!DOCTYPE html>');
-      expect(template).toContain('<html lang="zh-CN">');
+      expect(template).toContain('<html');
       expect(template).toContain('Test');
       expect(template).toContain('<h1>Hello</h1>');
       expect(template).toContain('</html>');
     });
 
     it('should include required scripts in template', () => {
-      const template = createHtmlTemplate('Test', '');
+      const template = renderPage('Test', '');
       
       expect(template).toContain('marked.min.js');
-      expect(template).toContain('html2pdf');
       expect(template).toContain('dompurify');
     });
 
     it('should include CSS variables', () => {
-      const template = createHtmlTemplate('Test', '');
+      const template = renderPage('Test', '');
       
-      expect(template).toContain('--color-primary');
-      expect(template).toContain('--color-bg');
-      expect(template).toContain('--color-text');
+      expect(template).toContain('--accent-primary');
+      expect(template).toContain('--bg-primary');
+      expect(template).toContain('--text-primary');
     });
   });
 

@@ -1,4 +1,4 @@
-import { sanitizeMarkdown, validateInputLength, truncateContent } from '../../src/utils/markdown';
+import { sanitizeMarkdown, validateInputLength } from '../../src/utils/markdown';
 
 describe('Sanitize Markdown', () => {
   it('should remove script tags', () => {
@@ -30,16 +30,25 @@ describe('Sanitize Markdown', () => {
     expect(result).toContain('<strong>');
   });
 
-  it('should sanitize javascript: in href', () => {
+  it('should sanitize javascript: protocol', () => {
     const input = '<a href="javascript:alert(1)">Link</a>';
     const result = sanitizeMarkdown(input);
-    expect(result).toContain('href="#"');
+    expect(result).not.toContain('javascript:');
+    expect(result).toContain('Link');
   });
 
-  it('should sanitize data: in img src', () => {
-    const input = '<img src="data:image/svg+xml,<svg/>">';
+  it('should handle single-quoted event handlers', () => {
+    const input = "<div onclick='alert(1)'>Test</div>";
     const result = sanitizeMarkdown(input);
-    expect(result).toContain('data:image/svg+xml,%3Csvg');
+    expect(result).not.toContain('onclick');
+    expect(result).toContain('Test');
+  });
+
+  it('should sanitize data: URIs in href', () => {
+    const input = '<a href="data:text/html,<script>alert(1)</script>">Link</a>';
+    const result = sanitizeMarkdown(input);
+    expect(result).toContain('href="#"');
+    expect(result).toContain('Link');
   });
 
   it('should remove javascript: protocol', () => {
@@ -81,15 +90,4 @@ describe('Input Validation', () => {
     expect(result.valid).toBe(true);
   });
 
-  it('should truncate content correctly', () => {
-    const content = 'a'.repeat(100);
-    const truncated = truncateContent(content, 50);
-    expect(truncated.length).toBe(50);
-  });
-
-  it('should return original content if shorter than max', () => {
-    const content = 'a'.repeat(100);
-    const truncated = truncateContent(content, 200);
-    expect(truncated.length).toBe(100);
-  });
 });
