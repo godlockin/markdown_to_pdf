@@ -87,9 +87,9 @@ console.log('Hello');
     it('should include CSS variables', () => {
       const template = renderPage('Test', '');
       
-      expect(template).toContain('--accent-primary');
-      expect(template).toContain('--bg-primary');
-      expect(template).toContain('--text-primary');
+      expect(template).toContain('--accent');
+      expect(template).toContain('--bg-elevated');
+      expect(template).toContain('--fg');
     });
   });
 

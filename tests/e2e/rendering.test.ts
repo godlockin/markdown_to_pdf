@@ -145,15 +145,15 @@ describe('E2E: Markdown Rendering Pipeline', () => {
     it('should include CSS styles', () => {
       const html = renderPage('Test', '');
       expect(html).toContain('<style>');
-      expect(html).toContain('--bg-primary');
-      expect(html).toContain('--accent-primary');
+      expect(html).toContain('--bg-elevated');
+      expect(html).toContain('--accent');
     });
 
     it('should include interactive JavaScript', () => {
       const html = renderPage('Test', '');
-      expect(html).toContain('const debounce');
-      expect(html).toContain('const exportPDF');
       expect(html).toContain('DOMContentLoaded');
+      expect(html).toContain('localStorage');
+      expect(html).toContain('preview');
     });
   });
 
